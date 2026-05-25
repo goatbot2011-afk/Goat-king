@@ -1,49 +1,63 @@
-const axios = require("axios");
+const axios = require('axios');
+const ok = 'xyz';
 
 module.exports = {
   config: {
     name: "prompt",
-    version: "1.0",
-    author: "NeoKEX",
+    aliases: ["p"],
+    version: "1.2",
+    author: "MarianCross",
     countDown: 5,
     role: 0,
-    shortDescription: { en: "Get prompt from image" },
-    longDescription: { en: "Extracts prompt from an image URL or replied image." },
-    category: "ai",
-    guide: { en: "{pn} [image url] or reply to an image" }
+    longDescription: {
+      vi: "",
+      en: "Get gemini prompts."
+    },
+    category: "ai"
   },
-
-  onStart: async function ({ message, args, event, api }) {
-    let imageUrl = args[0];
-    const { type, messageReply } = event;
-
-    if (type === "message_reply" && messageReply.attachments?.[0]?.type === "photo") {
-      imageUrl = messageReply.attachments[0].url;
-    }
-
-    if (!imageUrl) return message.reply("Please provide an image URL or reply to an image.");
-
+  onStart: async function ({ message, event, args, api }) {
     try {
-      api.setMessageReaction("⏳", event.messageID);
-      
-      const res = await axios.get(`https://smfahim.xyz/ai/img2prompt/v3`, {
-        params: {
-          imageUrl: imageUrl,
-          language: "en",
-          model: "0"
-        }
-      });
+      const promptText = args.join(" ");
+      let imageUrl;
+      let response;
 
-      if (res.data.success && res.data.prompt) {
-        message.reply(res.data.prompt);
-        api.setMessageReaction("✅", event.messageID);
-      } else {
-        throw new Error();
+      if (event.type === "message_reply") {
+        if (["photo", "sticker"].includes(event.messageReply.attachments[0]?.type)) {
+          imageUrl = event.messageReply.attachments[0].url;
+        } else {
+          return message.reply("❌ | Reply must be an image.");
+        }
+      } else if (args[0]?.match(/(https?:\/\/.*\.(?:png|jpg|jpeg))/g)) {
+        imageUrl = args[0];
+      } else if (!promptText) {
+        return message.reply("❌ | Reply to an image or provide a prompt.");
       }
 
-    } catch (err) {
-      api.setMessageReaction("❌", event.messageID);
-      message.reply("Failed to extract prompt from this image.");
+      if (["-r", "-random"].includes(promptText.toLowerCase())) {
+        response = await axios.get(`https://smfahim.${ok}/prompt-random`);
+        const description = response.data.data.prompt;
+        await message.reply(description);
+      } else if (["-anime", "-a"].some(flag => promptText.toLowerCase().includes(flag))) {
+        // Use the new URL if the '-anime' or '-a' flag is present
+        response = await axios.get(`https://smfahim.${ok}/prompt2?url=${encodeURIComponent(imageUrl || promptText)}`);
+        if (response.data.code === 200) {
+          const description = response.data.data;
+          await message.reply(description);
+        } else {
+          await message.reply("❌ | Failed to retrieve prompt data.");
+        }
+      } else if (imageUrl) {
+        response = await axios.get(`https://smfahim.${ok}/prompt?url=${encodeURIComponent(imageUrl)}`);
+        const description = response.data.result;
+        await message.reply(description);
+      } else {
+        response = await axios.get(`https://smfahim.${ok}/prompt?text=${encodeURIComponent(promptText)}`);
+        const description = response.data.prompt || response.data.result;
+        await message.reply(description);
+      }
+
+    } catch (error) {
+      message.reply(`❌ | An error occurred: ${error.message}`);
     }
   }
 };
