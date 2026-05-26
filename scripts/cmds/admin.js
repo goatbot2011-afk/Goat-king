@@ -139,11 +139,11 @@ async function sendAdminListCanvas(message, admins, usersData) {
 
 	ctx.shadowBlur = 0;
 
-	// Header Minato namikaze
+	// Header Kenzo vortex 
 	ctx.fillStyle = "#ffffff";
 	ctx.font = "bold 55px Sans";
 	ctx.textAlign = "left";
-	ctx.fillText("Minato namikaze", 80, 120);
+	ctx.fillText("Kenzo vortex", 80, 120);
 
 	ctx.fillStyle = "#8f8f8f";
 	ctx.font = "32px Sans";
