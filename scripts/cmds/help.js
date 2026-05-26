@@ -1,7 +1,6 @@
-// ULTRA HELP MENU V8 — LAST GENERATION
+// ULTRA HELP MENU V9 — NEXT GEN PREMIUM
 
 const { commands, aliases } = global.GoatBot;
-const axios = require("axios");
 
 function font(text = "") {
   const map = {
@@ -16,181 +15,93 @@ function font(text = "") {
   return text.split("").map(c => map[c] || c).join("");
 }
 
-function randomEmoji() {
-  const emojis = ["⚡","🌌","🔥","💫","👑","🚀","🎭","🧠","💎","☄️"];
-  return emojis[Math.floor(Math.random() * emojis.length)];
+function emoji() {
+  const e = ["⚡","🌌","🔥","💎","🚀","👑","☄️","🧠"];
+  return e[Math.floor(Math.random() * e.length)];
 }
 
 module.exports = {
   config: {
     name: "help",
-    version: "8.0",
-    author: "B.Michel",
+    version: "9.0",
+    author: "Tua Michel",
     countDown: 2,
     role: 0,
-    shortDescription: {
-      en: "Ultimate futuristic help menu"
-    },
-    longDescription: {
-      en: "Modern AI styled help system"
-    },
-    category: "info",
-    guide: {
-      en: "{pn} | {pn} command"
-    }
+    category: "info"
   },
 
-  onStart: async function ({
-    message,
-    args,
-    event,
-    usersData,
-    threadsData
-  }) {
+  onStart: async function ({ message, args, event }) {
 
-    const { commands } = global.GoatBot;
-
-    const threadData = await threadsData.get(event.threadID);
-
-    const prefix =
-      threadData.data.prefix ||
-      global.GoatBot.config.prefix;
-
-    const uid = event.senderID;
-
-    let avatar;
-
-    try {
-      const avatarUrl =
-        await usersData.getAvatarUrl(uid);
-
-      avatar =
-        await global.utils.getStreamFromURL(avatarUrl);
-
-    } catch {
-
-      avatar =
-        await global.utils.getStreamFromURL(
-          `https://graph.facebook.com/${uid}/picture?width=720&height=720`
-        );
-    }
-
-    // SINGLE COMMAND INFO
+    // SINGLE CMD INFO
     if (args[0]) {
+      const name = args[0].toLowerCase();
 
-      const cmdName = args[0].toLowerCase();
+      const cmd =
+        commands.get(name) ||
+        commands.get(aliases.get(name));
 
-      const command =
-        commands.get(cmdName) ||
-        commands.get(aliases.get(cmdName));
-
-      if (!command) {
-        return message.reply({
-          body: `
-╔════════════════╗
-❌ 𝖢𝗈𝗆𝗆𝖺𝗇𝖽 𝖭𝗈𝗍 𝖥𝗈𝗎𝗇𝖽
-╚════════════════╝
-
-La commande "${cmdName}" n'existe pas.
-`,
-          attachment: avatar
-        });
+      if (!cmd) {
+        return message.reply(
+`❌ Command not found: ${name}`
+        );
       }
 
-      const cfg = command.config;
+      const c = cmd.config;
 
-      return message.reply({
-        body: `
-╔════════════════════╗
-      🌌 𝖢𝖮𝖬𝖬𝖠𝖭𝖣 𝖨𝖭𝖥𝖮 🌌
+      return message.reply(
+`╔════════════════════╗
+      🌌 COMMAND INFO 🌌
 ╚════════════════════╝
 
-${randomEmoji()} 𝖭𝖺𝗆𝖾 : ${font(cfg.name)}
+${emoji()} Name: ${font(c.name)}
+👑 Author: ${c.author}
+📂 Category: ${font(c.category || "unknown")}
+⏱ Cooldown: ${c.countDown || 0}s
+🔐 Role: ${c.role}
 
-👑 𝖠𝗎𝗍𝗁𝗈𝗋 : ${cfg.author}
+📖 Description:
+${c.longDescription?.en || c.shortDescription?.en || "No description"}
 
-📂 𝖢𝖺𝗍𝖾𝗀𝗈𝗋𝗒 : ${font(cfg.category)}
+💡 Guide:
+${c.guide?.en || "No guide"}
 
-⏱ 𝖢𝗈𝗈𝗅𝖽𝗈𝗐𝗇 : ${cfg.countDown}s
-
-🔐 𝖯𝖾𝗋𝗆𝗂𝗌𝗌𝗂𝗈𝗇 :
-${cfg.role == 0 ? "👤 Users" :
-cfg.role == 1 ? "👥 Group Admins" :
-"👑 Bot Owner"}
-
-📖 𝖣𝖾𝗌𝖼𝗋𝗂𝗉𝗍𝗂𝗈𝗇 :
-${cfg.longDescription?.en ||
-cfg.shortDescription?.en ||
-"No description"}
-
-💡 𝖦𝗎𝗂𝖽𝖾 :
-${cfg.guide?.en || "No guide"}
-
-━━━━━━━━━━━━━━━━━━
-🌟 𝖴𝗅𝗍𝗋𝖺 𝖠𝖨 𝖧𝖾𝗅𝗉 𝖲𝗒𝗌𝗍𝖾𝗆
-`,
-        attachment: avatar
-      });
+━━━━━━━━━━━━━━━━━━`
+      );
     }
 
-    // ALL COMMANDS
-    const categories = {};
+    // GROUP COMMANDS
+    const cats = {};
 
-    for (const [name, cmd] of commands) {
-
-      const category =
-        cmd.config.category || "others";
-
-      if (!categories[category])
-        categories[category] = [];
-
-      categories[category].push(name);
+    for (const [n, c] of commands) {
+      const cat = c.config.category || "others";
+      if (!cats[cat]) cats[cat] = [];
+      cats[cat].push(n);
     }
 
-    let uptime =
-      process.uptime();
+    let msg =
+`╔════════════════════╗
+   🌌 HELP SYSTEM 🌌
+╚════════════════════╝
 
-    let hours =
-      Math.floor(uptime / 3600);
-
-    let minutes =
-      Math.floor((uptime % 3600) / 60);
-
-    let seconds =
-      Math.floor(uptime % 60);
-
-    let msg = `
-╔════════════════════════╗
-     🌌 𝖴𝖫𝖳𝖨𝖬𝖠𝖳𝖤 𝖧𝖤𝖫𝖯 🌌
-╚════════════════════════╝
-
-👋 ${font("Welcome To GoatBot")}
-
-🤖 𝖡𝗈𝗍 𝖭𝖺𝗆𝖾 : GoatBot V8
-👑 𝖮𝗐𝗇𝖾𝗋 : Tua Michel
-⚡ 𝖯𝗋𝖾𝖿𝗂𝗑 : [ ${prefix} ]
-
-📦 𝖳𝗈𝗍𝖺𝗅 𝖢𝗈𝗆𝗆𝖺𝗇𝖽𝗌 : ${commands.size}
-
-🕒 𝖴𝗉𝗍𝗂𝗆𝖾 :
-${hours}h ${minutes}m ${seconds}s
-
+⚡ Bot: KENZO VORTEX 
+👑 Owner: Tua Michel
+📦 Total Commands: ${commands.size}
 ━━━━━━━━━━━━━━━━━━
 `;
 
-    for (const category in categories) {
-
+    for (const cat in cats) {
       msg += `
-╭━━━〔 ${font(category.toUpperCase())} 〕━━⬣
-${categories[category]
-.sort()
-.map(cmd =>
-`┃ ${randomEmoji()} ${font(cmd)}`
-)
-.join("\n")}
-╰━━━━━━━━━━━━━━━━━━⬣
-`;
+╭──〔 ${font(cat.toUpperCase())} 〕──╮
+${cats[cat].map(c => `┃ ${emoji()} ${font(c)}`).join("\n")}
+╰────────────────────╯`;
     }
 
     msg += `
-...
+━━━━━━━━━━━━━━━━━━
+💡 Use: help <command>
+🚀 System: NEXT-GEN UI
+`;
+
+    return message.reply(msg);
+  }
+};
