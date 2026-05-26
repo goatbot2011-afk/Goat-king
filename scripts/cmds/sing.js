@@ -1,96 +1,97 @@
-const axios = require("axios");
+ const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
 
 module.exports = {
   config: {
     name: "sing",
-    aliases: ["song", "music"],
-    version: "1.1",
-    author: "Neoaz 🐊",
+    aliases: ["song", "music", "lyrics"],
+    version: "1.4",
+    author: "B.michel",
     countDown: 5,
     role: 0,
-    shortDescription: { en: "Search and download YouTube audio" },
+    shortDescription: { en: "Fast YouTube audio + lyrics download" },
     category: "media",
     guide: { en: "{pn} <song name>" }
   },
 
-  onStart: async function ({ message, args, event, api, commandName }) {
+  onStart: async function ({ message, args, event, api }) {
     const query = args.join(" ");
-    if (!query) return message.reply("Please provide a song name.");
+    if (!query) return message.reply("Donne un nom de chanson.");
 
-    try {
-      const res = await axios.get(`https://neokex-dlapis.vercel.app/api/search?q=${encodeURIComponent(query)}`);
-      const results = res.data.results.slice(0, 6);
-
-      if (results.length === 0) return message.reply("No songs found.");
-
-      let msg = "";
-      const attachments = [];
-      const cacheDir = path.join(__dirname, "cache");
-      await fs.ensureDir(cacheDir);
-
-      for (let i = 0; i < results.length; i++) {
-        msg += `${i + 1}. ${results[i].title}\n[${results[i].duration}]\n\n`;
-        const imgPath = path.join(cacheDir, `sing_${Date.now()}_${i}.jpg`);
-        const imgRes = await axios.get(results[i].thumbnail, { responseType: "arraybuffer" });
-        await fs.writeFile(imgPath, Buffer.from(imgRes.data));
-        attachments.push(fs.createReadStream(imgPath));
-      }
-
-      message.reply({ body: msg.trim(), attachment: attachments }, (err, info) => {
-        global.GoatBot.onReply.set(info.messageID, {
-          commandName,
-          author: event.senderID,
-          results
-        });
-        attachments.forEach(s => setTimeout(() => fs.remove(s.path).catch(() => {}), 10000));
-      });
-    } catch (e) {
-      message.reply("Search error.");
-    }
-  },
-
-  onReply: async function ({ message, event, Reply, api }) {
-    const choice = parseInt(event.body);
-    if (isNaN(choice) || choice < 1 || choice > Reply.results.length) return;
-
-    const selected = Reply.results[choice - 1];
-    api.unsendMessage(event.messageReply.messageID);
     api.setMessageReaction("⏳", event.messageID);
 
     try {
-      const dlRes = await axios.get(`https://neokex-dlapis.vercel.app/api/alldl?url=${encodeURIComponent(selected.url)}`);
+      const { data } = await axios.get(
+        `https://neokex-dlapis.vercel.app/api/search?q=${encodeURIComponent(query)}`,
+        { timeout: 8000 }
+      );
+      if (!data.results?.length) return message.reply("Aucun résultat trouvé.");
+      
+      const selected = data.results[0];
+      const [artist, title] = selected.title.includes(" - ") 
+        ? selected.title.split(" - ", 2) 
+        : [query, selected.title];
+
+      const dlRes = await axios.get(
+        `https://neokex-dlapis.vercel.app/api/alldl?url=${encodeURIComponent(selected.url)}`,
+        { timeout: 8000 }
+      );
       const pollUrl = dlRes.data.audio.downloadUrl;
+      if (!pollUrl) throw new Error("L'API n'a pas renvoyé de lien.");
 
       let streamUrl = null;
-      for (let i = 0; i < 60; i++) {
-        const statusRes = await axios.get(pollUrl);
+      for (let i = 0; i < 40; i++) {
+        const statusRes = await axios.get(pollUrl, { timeout: 5000 });
         if (statusRes.data.status === "completed") {
           streamUrl = statusRes.data.viewUrl;
           break;
         }
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 500));
+      }
+      if (!streamUrl) throw new Error("Timeout audio.");
+
+      let lyricsText = null;
+      try {
+        const lyricsRes = await axios.get(
+          `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`,
+          { timeout: 5000 }
+        );
+        lyricsText = lyricsRes.data.lyrics;
+      } catch {
+        lyricsText = null;
       }
 
-      if (!streamUrl) throw new Error("Processing timeout.");
-
       const cacheDir = path.join(__dirname, "cache");
+      await fs.ensureDir(cacheDir);
       const filePath = path.join(cacheDir, `${Date.now()}.mp3`);
-      
-      const fileRes = await axios.get(streamUrl, { responseType: "arraybuffer" });
-      await fs.writeFile(filePath, Buffer.from(fileRes.data));
+
+      const fileRes = await axios.get(streamUrl, { 
+        responseType: "arraybuffer",
+        timeout: 30000 
+      });
+      await fs.writeFile(filePath, fileRes.data);
 
       await message.reply({
-        body: selected.title,
+        body: `🎵 ${selected.title}\n⏱️ ${selected.duration}`,
         attachment: fs.createReadStream(filePath)
       });
 
+      if (lyricsText) {
+        const shortLyrics = lyricsText.length > 4000 
+          ? lyricsText.slice(0, 4000) + "\n\n...Paroles coupées" 
+          : lyricsText;
+        await message.reply(`📜 **Paroles:**\n\n${shortLyrics}`);
+      } else {
+        await message.reply("📜 Pas de paroles trouvées pour ce titre.");
+      }
+
       api.setMessageReaction("✅", event.messageID);
       fs.remove(filePath).catch(() => {});
+
     } catch (e) {
       api.setMessageReaction("❌", event.messageID);
-      message.reply("Download error.");
+      message.reply("Erreur: " + (e.message || "Serveur lent ou down"));
     }
   }
 };
