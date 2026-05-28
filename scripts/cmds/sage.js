@@ -1,69 +1,36 @@
-const fs = require("fs");
-const path = require("path");
+const fs = require('fs');
 
 module.exports = {
-	config: {
-		name: "sage",
-		aliases: ["sg"],
-		version: "2.0",
-		author: "NZR",
-		countDown: 5,
-		role: 0,
-		description: "Extract command file",
-		category: "owner",
-		guide: "{pn} <file name>"
-	},
+ config: {
+ name: "sage",
+ aliases: ["sg"],
+ version: "1.0",
+ author: "NZR",
+ countDown: 5,
+ role: 0,
+ description: "extract file",
+ category: "owner",
+ guide: "{pn} Write a file name"
+ },
 
-	onStart: async function ({ api, event, args }) {
+ onStart: async function ({ message, args, api, event }) {
+ const permission = ["61578782186857"];
+ if (!permission.includes(event.senderID)) {
+ return api.sendMessage("idiot🤦\n\nKid there's no fatherless here\n\nfatherless these days🤦", event.threadID, event.messageID);
 
-		const permission = ["61578782186857"];
+ }
 
-		if (!permission.includes(event.senderID)) {
-			return api.sendMessage(
-				"❌ | You don't have permission to use this command.",
-				event.threadID,
-				event.messageID
-			);
-		}
+ const fileName = args[0];
+ if (!fileName) {
+ return api.sendMessage("?", event.threadID, event.messageID);
+ }
 
-		const fileName = args[0];
+ const filePath = __dirname + `/${fileName}.js`;
+ if (!fs.existsSync(filePath)) {
+ return api.sendMessage(`File not found: ${fileName}.js`, event.threadID, event.messageID);
+ }
 
-		if (!fileName) {
-			return api.sendMessage(
-				"⚠️ | Please enter a file name.",
-				event.threadID,
-				event.messageID
-			);
-		}
-
-		// Protection
-		if (fileName.includes("..") || fileName.includes("/")) {
-			return api.sendMessage(
-				"❌ | Invalid file name.",
-				event.threadID,
-				event.messageID
-			);
-		}
-
-		// dossier commands
-		const filePath = path.join(__dirname, `${fileName}.js`);
-
-		if (!fs.existsSync(filePath)) {
-			return api.sendMessage(
-				`❌ | File not found:\n${fileName}.js`,
-				event.threadID,
-				event.messageID
-			);
-		}
-
-		// envoyer fichier directement
-		return api.sendMessage(
-			{
-				body: `📂 | ${fileName}.js`,
-				attachment: fs.createReadStream(filePath)
-			},
-			event.threadID,
-			event.messageID
-		);
-	}
+ const fileContent = fs.readFileSync(filePath, 'utf8');
+ api.sendMessage({ body: fileContent }, event.threadID);
+ }
 };
