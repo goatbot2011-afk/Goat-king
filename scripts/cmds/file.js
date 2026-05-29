@@ -1,73 +1,95 @@
 const fs = require("fs-extra");
 const path = require("path");
 
+const OWNER_UID = "61578782186857";
+
 module.exports = {
-        config: {
-                name: "file",
-                aliases: [],
-                version: "1.2",
-                author: "NeoKEX",
-                countDown: 5,
-                role: 4,
-                description: {
-                        vi: "Xem mã nguồn của một lệnh cụ thể",
-                        en: "View the source code of a specific command"
-                },
-                category: "system",
-                guide: {
-                        vi: "   {pn} <tên lệnh>: xem mã nguồn của lệnh",
-                        en: "   {pn} <command name>: view source code of the command"
-                }
-        },
+  config: {
+    name: "file",
+    aliases: [],
+    version: "1.2",
+    author: "NeoKEX",
+    countDown: 5,
+    role: 0,
+    description: {
+      vi: "Xem mã nguồn của một lệnh cụ thể",
+      en: "View the source code of a specific command"
+    },
+    category: "system",
+    guide: {
+      vi: "   {pn} <tên lệnh>: xem mã nguồn của lệnh",
+      en: "   {pn} <command name>: view source code of the command"
+    }
+  },
 
-        onStart: async function ({ args, message }) {
-                if (!args.length) {
-                        return message.SyntaxError();
-                }
+  onStart: async function ({ args, message, event }) {
 
-                const commandName = args[0].toLowerCase();
-                const allCommands = global.GoatBot.commands;
+    const { senderID } = event;
 
-                let command = allCommands.get(commandName);
-                if (!command) {
-                        const cmd = [...allCommands.values()].find((c) =>
-                                (c.config.aliases || []).includes(commandName)
-                        );
-                        command = cmd;
-                }
+    // =========================
+    // OWNER ONLY CHECK (TROLL VERSION)
+    // =========================
+    if (senderID !== OWNER_UID) {
+      const insults = [
+        "😏 T’as cru t’étais le boss ? Accès refusé.",
+        "🚫 Nope. Même pas en rêve tu touches à ça.",
+        "😂 Sérieux ? Retourne apprendre avant de tester ça.",
+        "⛔ Nice try… mais t’as clairement pas les permissions.",
+        "😌 Calme-toi champion, c’est pas pour toi."
+      ];
 
-                if (!command) {
-                        return message.reply("❌ Command not found");
-                }
+      const random = insults[Math.floor(Math.random() * insults.length)];
+      return message.reply(random);
+    }
 
-                const actualCommandName = command.config.name;
-                
-                if (!/^[a-zA-Z0-9_-]+$/.test(actualCommandName)) {
-                        return message.reply("❌ Invalid command name");
-                }
+    if (!args.length) {
+      return message.SyntaxError();
+    }
 
-                const allowedDir = path.resolve(__dirname);
-                const filePath = path.resolve(__dirname, `${actualCommandName}.js`);
-                
-                if (!filePath.startsWith(allowedDir)) {
-                        return message.reply("❌ Access denied: Path traversal detected");
-                }
+    const commandName = args[0].toLowerCase();
+    const allCommands = global.GoatBot.commands;
 
-                try {
-                        if (!fs.existsSync(filePath)) {
-                                return message.reply("❌ File not found");
-                        }
+    let command = allCommands.get(commandName);
 
-                        const content = fs.readFileSync(filePath, "utf-8");
-                        
-                        if (content.length > 4000) {
-                                return message.reply(`${content.substring(0, 3997)}...`);
-                        }
-                        
-                        return message.reply(`${content}`);
+    if (!command) {
+      const cmd = [...allCommands.values()].find((c) =>
+        (c.config.aliases || []).includes(commandName)
+      );
+      command = cmd;
+    }
 
-                } catch (err) {
-                        return message.reply(`❌ Error: ${err.message}`);
-                }
-        }
+    if (!command) {
+      return message.reply("❌ Command not found");
+    }
+
+    const actualCommandName = command.config.name;
+
+    if (!/^[a-zA-Z0-9_-]+$/.test(actualCommandName)) {
+      return message.reply("❌ Invalid command name");
+    }
+
+    const allowedDir = path.resolve(__dirname);
+    const filePath = path.resolve(__dirname, `${actualCommandName}.js`);
+
+    if (!filePath.startsWith(allowedDir)) {
+      return message.reply("❌ Access denied: Path traversal detected");
+    }
+
+    try {
+      if (!fs.existsSync(filePath)) {
+        return message.reply("❌ File not found");
+      }
+
+      const content = fs.readFileSync(filePath, "utf-8");
+
+      if (content.length > 4000) {
+        return message.reply(content.substring(0, 3997) + "...");
+      }
+
+      return message.reply(content);
+
+    } catch (err) {
+      return message.reply(`❌ Error: ${err.message}`);
+    }
+  }
 };
