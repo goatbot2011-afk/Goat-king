@@ -528,4 +528,4 @@ function unloadScripts(folder, fileName, configCommands, getLang) {
 }
 
 global.utils.loadScripts = loadScripts;
-global.utils.unloadScripts = unloadScripts;
+global.utils.unloadScripts = unloadScripts;global.utils.unloadScripts = unloadScripts;
