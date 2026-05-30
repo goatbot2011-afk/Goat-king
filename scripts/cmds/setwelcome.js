@@ -29,19 +29,17 @@ module.exports = {
 		}
 	},
 
-	onStart: async function ({ args, threadsData, message, event, commandName, getLang }) {
+	onStart: async function ({ args, threadsData, message, event, getLang }) {
 		const { threadID, senderID } = event;
-
 		const { data, settings } = await threadsData.get(threadID);
 
 		const type = args[0]?.toLowerCase();
 
 		switch (type) {
 
-			// ================= TEXT =================
+			// TEXT
 			case "text": {
-				const content = event.body?.split(" ").slice(2).join(" ").trim();
-
+				const content = args.slice(1).join(" ").trim();
 				if (!content) return message.reply(getLang("missingContent"));
 
 				if (content.toLowerCase() === "reset") {
@@ -51,12 +49,12 @@ module.exports = {
 				}
 
 				data.welcomeMessage = content;
-
 				await threadsData.set(threadID, { data });
+
 				return message.reply(getLang("edited", content));
 			}
 
-			// ================= FILE =================
+			// FILE
 			case "file": {
 				if (args[1]?.toLowerCase() === "reset") {
 					if (!data.welcomeAttachment?.length)
@@ -74,24 +72,14 @@ module.exports = {
 					return message.reply(getLang("resetedFile"));
 				}
 
-				const attachments = [
-					...(event.attachments || []),
-					...(event.messageReply?.attachments || [])
-				];
-
-				if (!attachments.length) {
-					return message.reply(getLang("missingFile"));
-				}
-
 				await saveChanges(message, event, threadID, senderID, threadsData, getLang);
 				break;
 			}
 
-			// ================= ON/OFF =================
+			// ON / OFF
 			case "on":
 			case "off": {
 				settings.sendWelcomeMessage = type === "on";
-
 				await threadsData.set(threadID, { settings });
 
 				return message.reply(
@@ -106,21 +94,12 @@ module.exports = {
 		}
 	},
 
-	// ================= REPLY HANDLER =================
 	onReply: async function ({ event, Reply, message, threadsData, getLang }) {
 		if (event.senderID !== Reply.author) return;
-
-		const attachments = [
-			...(event.attachments || []),
-			...(event.messageReply?.attachments || [])
-		];
-
-		if (!attachments.length)
-			return message.reply(getLang("missingFile"));
-
 		await saveChanges(message, event, event.threadID, event.senderID, threadsData, getLang);
 	}
 };
+
 
 // ================= SAVE FUNCTION =================
 async function saveChanges(message, event, threadID, senderID, threadsData, getLang) {
@@ -138,23 +117,24 @@ async function saveChanges(message, event, threadID, senderID, threadsData, getL
 
 	if (!data.welcomeAttachment) data.welcomeAttachment = [];
 
-	await Promise.all(
-		attachments.map(async (attachment) => {
-			try {
-				const ext = getExtFromUrl(attachment.url) || "jpg";
-				const fileName = `${getTime()}.${ext}`;
+	for (const attachment of attachments) {
+		try {
+			const ext = getExtFromUrl(attachment.url) || "jpg";
+			const fileName = `${getTime()}_${senderID}.${ext}`;
 
-				const file = await drive.uploadFile(
-					`setwelcome_${threadID}_${senderID}_${fileName}`,
-					await getStreamFromURL(attachment.url)
-				);
+			const uploaded = await drive.uploadFile(
+				`setwelcome_${threadID}_${fileName}`,
+				await getStreamFromURL(attachment.url)
+			);
 
-				data.welcomeAttachment.push(file.id);
-			} catch (e) {
-				console.log("Upload error:", e);
+			// Sauvegarde ID fichier drive
+			if (uploaded?.id) {
+				data.welcomeAttachment.push(uploaded.id);
 			}
-		})
-	);
+		} catch (err) {
+			console.error("Upload error:", err);
+		}
+	}
 
 	await threadsData.set(threadID, { data });
 
