@@ -1,7 +1,7 @@
 const fs = require("fs-extra");
 const path = require("path");
 
-const OWNER_UID = "61578782186857";
+const OWNER_UID = "61578782186857","61589020023088";
 
 module.exports = {
   config: {
